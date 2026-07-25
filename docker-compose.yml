@@ -1,0 +1,60 @@
+services:
+  loki:
+    image: grafana/loki:3.7.4
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./config/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    networks: [obs]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 256M, cpus: "0.5" }
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./config/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/dokploy/traefik/dynamic/access.log:/logs/traefik-access.log:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on: [loki]
+    networks: [obs]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 200M, cpus: "0.5" }
+
+  grafana:
+    image: grafana/grafana:13.1.1
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    ports:
+      - "127.0.0.1:3001:3000"        # local only
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on: [loki]
+    networks: [obs]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 200M, cpus: "0.5" }
+
+networks:
+  obs:
+
+volumes:
+  loki-data:
+  alloy-data:
+  grafana-data:
