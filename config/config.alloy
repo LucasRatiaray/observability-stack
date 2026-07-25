@@ -1,0 +1,51 @@
+// Push everything to Loki
+loki.write "default" {
+  endpoint { url = "http://loki:3100/loki/api/v1/push" }
+}
+
+// Traefik access log
+local.file_match "traefik" {
+  path_targets = [{ __path__ = "/logs/traefik-access.log", job = "traefik", host = "vps" }]
+}
+loki.source.file "traefik" {
+  targets    = local.file_match.traefik.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// System auth log (may be absent on Ubuntu 24.04+, covered by journald below)
+local.file_match "auth" {
+  path_targets = [{ __path__ = "/var/log/auth.log", job = "auth", host = "vps" }]
+}
+loki.source.file "auth" {
+  targets    = local.file_match.auth.targets
+  forward_to = [loki.write.default.receiver]
+}
+
+// Journald (fail2ban, ufw, kernel, system services)
+loki.source.journal "journal" {
+  path       = "/var/log/journal"
+  forward_to = [loki.write.default.receiver]
+  labels     = { job = "systemd-journal", host = "vps" }
+}
+
+// Docker container logs
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Set the container name as a label
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.default.receiver]
+  labels     = { job = "docker", host = "vps" }
+}
