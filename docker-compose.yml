@@ -39,6 +39,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_PLUGINS_PREINSTALL_DISABLED=true
       - GF_PLUGINS_PLUGIN_ADMIN_ENABLED=false
     ports:
       - "127.0.0.1:3001:3000"        # local only
@@ -50,7 +51,7 @@ services:
     restart: unless-stopped
     deploy:
       resources:
-        limits: { memory: 250M, cpus: "0.8" }
+        limits: { memory: 348M, cpus: "0.8" }
 
 networks:
   obs:
